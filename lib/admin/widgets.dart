@@ -1,0 +1,109 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../main.dart';
+
+class AdminCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+  const AdminCard({super.key, required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          child,
+        ]),
+      ),
+    );
+  }
+}
+
+class AdminGrid extends StatelessWidget {
+  final List<Widget> children;
+  const AdminGrid({super.key, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final cols = width > 1400 ? 3 : width > 900 ? 2 : 1;
+    return GridView.count(
+      crossAxisCount: cols,
+      childAspectRatio: 1.8,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      children: children,
+    );
+  }
+}
+
+class AdminToolbar extends ConsumerWidget {
+  final List<Widget> actions;
+  const AdminToolbar({super.key, required this.actions});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(children: [
+        Expanded(child: Text('Admin', style: Theme.of(context).textTheme.titleLarge)),
+        ...actions,
+        const SizedBox(width: 8),
+        Tooltip(
+          message: 'Appearance',
+          child: IconButton(
+            icon: const Icon(Icons.brightness_6_outlined),
+            onPressed: () async {
+              ThemeMode current = ref.read(themeModeProvider);
+              final mode = await showDialog<ThemeMode>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Appearance'),
+                  content: StatefulBuilder(
+                    builder: (ctx, setState) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        RadioListTile<ThemeMode>(
+                          value: ThemeMode.system,
+                          groupValue: current,
+                          onChanged: (v) => setState(() => current = v!),
+                          title: const Text('System default'),
+                        ),
+                        RadioListTile<ThemeMode>(
+                          value: ThemeMode.light,
+                          groupValue: current,
+                          onChanged: (v) => setState(() => current = v!),
+                          title: const Text('Light'),
+                        ),
+                        RadioListTile<ThemeMode>(
+                          value: ThemeMode.dark,
+                          groupValue: current,
+                          onChanged: (v) => setState(() => current = v!),
+                          title: const Text('Dark'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+                    ElevatedButton(onPressed: () => Navigator.of(ctx).pop(current), child: const Text('Apply')),
+                  ],
+                ),
+              );
+              if (mode != null) {
+                ref.read(themeModeProvider.notifier).state = mode;
+                await saveThemeModePreference(mode);
+              }
+            },
+          ),
+        ),
+      ]),
+    );
+  }
+}

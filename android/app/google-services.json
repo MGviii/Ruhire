@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1043910811642",
+    "project_id": "ruhire",
+    "storage_bucket": "ruhire.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1043910811642:android:61b1ebb8af8d3c96490e43",
+        "android_client_info": {
+          "package_name": "com.example.ruhire"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAgYddqIWID53tIRi7zeWirBXQuRobVMf0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
