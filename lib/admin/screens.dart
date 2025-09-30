@@ -58,6 +58,34 @@ class AdminDashboardScreen extends ConsumerWidget {
     final stats = ref.watch(adminDashboardStatsProvider);
     final buses = ref.watch(adminBusesProvider);
 
+    Future<void> showBusLocation(dynamic b) async {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(b.name),
+          content: SizedBox(
+            width: 500,
+            height: 350,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(target: LatLng(b.latitude, b.longitude), zoom: 14),
+              markers: {
+                Marker(
+                  markerId: MarkerId(b.id),
+                  position: LatLng(b.latitude, b.longitude),
+                  infoWindow: InfoWindow(title: b.name, snippet: 'Onboard: ${b.onboardStudentIds.length}'),
+                ),
+              },
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: true,
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(children: [
@@ -65,6 +93,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         AdminGrid(children: [
           AdminCard(
             title: 'Buses',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminLiveMapScreen())),
             child: stats.when(
               data: (s) => Text('${s.totalBuses}'),
               loading: () => const LinearProgressIndicator(),
@@ -73,6 +102,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
           AdminCard(
             title: 'Active Students',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminAttendanceScreen())),
             child: stats.when(
               data: (s) => Text('${s.activeStudents}'),
               loading: () => const LinearProgressIndicator(),
@@ -81,6 +111,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
           AdminCard(
             title: 'Alerts',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminReportsScreen())),
             child: stats.when(
               data: (s) => Text('${s.activeAlerts}'),
               loading: () => const LinearProgressIndicator(),
@@ -92,7 +123,19 @@ class AdminDashboardScreen extends ConsumerWidget {
         AdminCard(
           title: 'Active Buses',
           child: buses.when(
-            data: (list) => Wrap(spacing: 8, runSpacing: 8, children: list.map((b) => Chip(label: Text(b.name))).toList()),
+            data: (list) => Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: list
+                  .map(
+                    (b) => ActionChip(
+                      label: Text(b.name),
+                      avatar: const Icon(Icons.directions_bus, size: 18),
+                      onPressed: () => showBusLocation(b),
+                    ),
+                  )
+                  .toList(),
+            ),
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text('Error: $e'),
           ),

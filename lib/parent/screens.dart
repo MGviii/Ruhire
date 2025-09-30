@@ -1,6 +1,7 @@
 // ignore_for_file: unused_field
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'providers.dart';
@@ -384,9 +385,72 @@ class ParentDashboardScreen extends ConsumerWidget {
           ),
           SectionCard(
             title: 'Bus',
-            child: Text(lastLocation == null
-                ? 'Locating...'
-                : 'Lat: ${lastLocation.latitude.toStringAsFixed(5)}, Lng: ${lastLocation.longitude.toStringAsFixed(5)}'),
+            child: lastLocation == null
+                ? const Text('Locating...')
+                : (kIsWeb
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            height: 220,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(12.0),
+                              child: Text(
+                                'Map is loading... If this persists, hard reload the page or check API key restrictions.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Lat: ${lastLocation.latitude.toStringAsFixed(5)}, Lng: ${lastLocation.longitude.toStringAsFixed(5)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            height: 220,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: GoogleMap(
+                                initialCameraPosition: CameraPosition(
+                                  target: LatLng(lastLocation.latitude, lastLocation.longitude),
+                                  zoom: 15,
+                                ),
+                                markers: {
+                                  Marker(
+                                    markerId: const MarkerId('bus_dashboard'),
+                                    position: LatLng(lastLocation.latitude, lastLocation.longitude),
+                                    infoWindow: const InfoWindow(
+                                      title: 'Mock Address',
+                                      snippet: 'School Bus Location',
+                                    ),
+                                  ),
+                                },
+                                myLocationButtonEnabled: false,
+                                zoomControlsEnabled: false,
+                                liteModeEnabled: false,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Lat: ${lastLocation.latitude.toStringAsFixed(5)}, Lng: ${lastLocation.longitude.toStringAsFixed(5)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      )),
           ),
           SectionCard(
             title: 'Notifications',
@@ -417,6 +481,33 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
     final locationAsync = ref.watch(busLocationStreamProvider);
     return locationAsync.when(
       data: (loc) {
+        if (kIsWeb) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 300,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                    child: const Text(
+                      'Map is loading... If this persists, hard reload the page or check API key restrictions.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Lat: ${loc.latitude.toStringAsFixed(5)}, Lng: ${loc.longitude.toStringAsFixed(5)}'),
+                ],
+              ),
+            ),
+          );
+        }
         final marker = Marker(
           markerId: const MarkerId('bus'),
           position: LatLng(loc.latitude, loc.longitude),
