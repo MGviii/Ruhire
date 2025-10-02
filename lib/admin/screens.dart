@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'providers.dart';
 import 'widgets.dart';
 import 'profile_providers.dart';
@@ -93,6 +94,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         AdminGrid(children: [
           AdminCard(
             title: 'Buses',
+            icon: Icons.directions_bus,
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminLiveMapScreen())),
             child: stats.when(
               data: (s) => Text('${s.totalBuses}'),
@@ -102,6 +104,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
           AdminCard(
             title: 'Active Students',
+            icon: Icons.group,
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminAttendanceScreen())),
             child: stats.when(
               data: (s) => Text('${s.activeStudents}'),
@@ -111,6 +114,8 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
           AdminCard(
             title: 'Alerts',
+            icon: Icons.warning_amber_rounded,
+            iconColor: Colors.redAccent,
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminReportsScreen())),
             child: stats.when(
               data: (s) => Text('${s.activeAlerts}'),
@@ -122,6 +127,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         const SizedBox(height: 12),
         AdminCard(
           title: 'Active Buses',
+          icon: Icons.directions_bus_filled,
           child: buses.when(
             data: (list) => Wrap(
               spacing: 8,
@@ -138,6 +144,140 @@ class AdminDashboardScreen extends ConsumerWidget {
             ),
             loading: () => const LinearProgressIndicator(),
             error: (e, _) => Text('Error: $e'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Attendance trends (last 7 days) – Line Chart
+        AdminCard(
+          title: 'Attendance Trends (7 days)',
+          icon: Icons.show_chart,
+          child: Consumer(
+            builder: (context, ref, _) {
+              final attendanceAsync = ref.watch(adminAttendanceProvider((query: null, status: null)));
+              return SizedBox(
+                height: 220,
+                child: attendanceAsync.when(
+                  data: (rows) {
+                    // Aggregate check-ins by day for last 7 days
+                    final now = DateTime.now();
+                    final days = List.generate(7, (i) => DateTime(now.year, now.month, now.day).subtract(Duration(days: 6 - i)));
+                    final counts = List<int>.filled(7, 0);
+                    for (final r in rows) {
+                      final d = DateTime(r.timestamp.year, r.timestamp.month, r.timestamp.day);
+                      final idx = days.indexOf(d);
+                      if (idx != -1 && r.status == 'check-in') counts[idx]++;
+                    }
+                    final maxY = (counts.isEmpty ? 1 : (counts.reduce((a, b) => a > b ? a : b))).toDouble().clamp(1, double.infinity);
+                    return LineChart(
+                      LineChartData(
+                        minY: 0,
+                        maxY: maxY + 1,
+                        titlesData: FlTitlesData(
+                          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (value, meta) {
+                                final i = value.toInt();
+                                if (i < 0 || i >= days.length) return const SizedBox.shrink();
+                                final d = days[i];
+                                return Text('${d.month}/${d.day}', style: Theme.of(context).textTheme.bodySmall);
+                              },
+                              interval: 1,
+                            ),
+                          ),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        ),
+                        gridData: FlGridData(show: true),
+                        borderData: FlBorderData(show: true),
+                        lineTouchData: LineTouchData(enabled: true),
+                        lineBarsData: [
+                          LineChartBarData(
+                            isCurved: true,
+                            color: Theme.of(context).colorScheme.primary,
+                            barWidth: 3,
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(show: true, color: Theme.of(context).colorScheme.primary.withOpacity(0.12)),
+                            spots: [for (int i = 0; i < counts.length; i++) FlSpot(i.toDouble(), counts[i].toDouble())],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        // Bus usage – Bar Chart (onboard students per bus)
+        AdminCard(
+          title: 'Bus Usage',
+          icon: Icons.bar_chart,
+          child: Consumer(
+            builder: (context, ref, _) {
+              final busesAsync = ref.watch(adminBusesProvider);
+              return SizedBox(
+                height: 220,
+                child: busesAsync.when(
+                  data: (list) {
+                    if (list.isEmpty) return const Center(child: Text('No buses'));
+                    final bars = <BarChartGroupData>[];
+                    int maxVal = 0;
+                    for (int i = 0; i < list.length; i++) {
+                      final count = list[i].onboardStudentIds.length;
+                      maxVal = count > maxVal ? count : maxVal;
+                      bars.add(
+                        BarChartGroupData(
+                          x: i,
+                          barRods: [
+                            BarChartRodData(
+                              toY: count.toDouble(),
+                              color: Theme.of(context).colorScheme.secondary,
+                              width: 18,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return BarChart(
+                      BarChartData(
+                        maxY: (maxVal + 1).toDouble(),
+                        gridData: FlGridData(show: true),
+                        borderData: FlBorderData(show: true),
+                        barGroups: bars,
+                        titlesData: FlTitlesData(
+                          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (value, meta) {
+                                final i = value.toInt();
+                                if (i < 0 || i >= list.length) return const SizedBox.shrink();
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(list[i].name, style: Theme.of(context).textTheme.bodySmall),
+                                );
+                              },
+                              interval: 1,
+                            ),
+                          ),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        ),
+                        barTouchData: BarTouchData(enabled: true),
+                      ),
+                    );
+                  },
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                ),
+              );
+            },
           ),
         ),
       ]),

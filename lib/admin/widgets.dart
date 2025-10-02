@@ -6,7 +6,16 @@ class AdminCard extends StatelessWidget {
   final String title;
   final Widget child;
   final VoidCallback? onTap;
-  const AdminCard({super.key, required this.title, required this.child, this.onTap});
+  final IconData? icon;
+  final Color? iconColor;
+  const AdminCard({
+    super.key,
+    required this.title,
+    required this.child,
+    this.onTap,
+    this.icon,
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +44,25 @@ class AdminCard extends StatelessWidget {
             border: Border.all(color: scheme.outlineVariant.withOpacity(0.5)),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (icon != null)
+                  Container(
+                    height: 40,
+                    width: 40,
+                    decoration: BoxDecoration(
+                      color: (iconColor ?? scheme.primary).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(icon, color: iconColor ?? scheme.primary),
+                  ),
+                if (icon != null) const SizedBox(width: 12),
+                Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+            const SizedBox(height: 12),
             child,
           ]),
         ),

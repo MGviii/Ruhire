@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'providers.dart';
 import '../auth_providers.dart';
 import 'widgets.dart';
@@ -475,6 +476,92 @@ class ParentMapScreen extends ConsumerStatefulWidget {
 
 class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
   GoogleMapController? _controller;
+  bool _hasPermission = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check existing permission status without prompting.
+    _checkPermissionSilently();
+  }
+
+  Future<void> _checkPermissionSilently() async {
+    if (kIsWeb) return; // Permissions not needed on web here
+    final status = await Geolocator.checkPermission();
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (mounted) {
+      setState(() {
+        _hasPermission = serviceEnabled && (status == LocationPermission.whileInUse || status == LocationPermission.always);
+      });
+    }
+  }
+
+  Future<void> _requestLocationPermission(BuildContext context) async {
+    if (kIsWeb) return;
+    var serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Prompt user to enable location services
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Enable Location Services'),
+          content: const Text('Location services are disabled. Please enable them in system settings to show your position on the map.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
+            TextButton(
+              onPressed: () {
+                Geolocator.openLocationSettings();
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        ),
+      );
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Permission Required'),
+          content: const Text('Location permission is permanently denied. Please grant it from app settings.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Close')),
+            TextButton(
+              onPressed: () {
+                Geolocator.openAppSettings();
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Open App Settings'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _hasPermission = (permission == LocationPermission.whileInUse || permission == LocationPermission.always);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -513,9 +600,30 @@ class _ParentMapScreenState extends ConsumerState<ParentMapScreen> {
           position: LatLng(loc.latitude, loc.longitude),
           infoWindow: const InfoWindow(title: 'School Bus'),
         );
+        if (!_hasPermission) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('To show your current position on the map, allow location access.'),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: () => _requestLocationPermission(context),
+                    icon: const Icon(Icons.my_location),
+                    label: const Text('Enable Location'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return GoogleMap(
           initialCameraPosition: CameraPosition(target: LatLng(loc.latitude, loc.longitude), zoom: 15),
           markers: {marker},
+          myLocationEnabled: true,
+          myLocationButtonEnabled: true,
           onMapCreated: (c) => _controller = c,
         );
       },
